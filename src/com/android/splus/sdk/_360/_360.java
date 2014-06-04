@@ -242,7 +242,7 @@ public class _360 implements IPayManager {
                 params.put("version", PayManager.SDK_VERSION);
                 params.put("sign", MD5Util.getMd5toLowerCase(keyString));
                 params.put("code", authorizationCode);
-                NetHttpUtil.getDataFromServerPOST(mActivity, new RequestModel(APIConstants.TS_VERIFY, params, new LoginParser()), mLoginDataCallBack);
+                NetHttpUtil.getDataFromServerPOST(mActivity, new RequestModel(APIConstants.LOGIN_URL, params, new LoginParser()), mLoginDataCallBack);
             } else {
                 mLoginCallBack.loginFaile("登录失败，请稍后再试");
             }
