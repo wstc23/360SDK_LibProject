@@ -1,6 +1,7 @@
 package com.android.splus.sdk._360;
 
 import com.android.splus.sdk.apiinterface.APIConstants;
+import com.android.splus.sdk.apiinterface.DateUtil;
 import com.android.splus.sdk.apiinterface.IPayManager;
 import com.android.splus.sdk.apiinterface.InitBean;
 import com.android.splus.sdk.apiinterface.InitBean.InitBeanSuccess;
@@ -11,7 +12,6 @@ import com.android.splus.sdk.apiinterface.LogoutCallBack;
 import com.android.splus.sdk.apiinterface.MD5Util;
 import com.android.splus.sdk.apiinterface.NetHttpUtil;
 import com.android.splus.sdk.apiinterface.NetHttpUtil.DataCallback;
-import com.android.splus.sdk.apiinterface.PayManager;
 import com.android.splus.sdk.apiinterface.RechargeCallBack;
 import com.android.splus.sdk.apiinterface.RequestModel;
 import com.android.splus.sdk.apiinterface.UserAccount;
@@ -33,7 +33,6 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.util.HashMap;
 import java.util.Properties;
@@ -68,9 +67,9 @@ public class _360 implements IPayManager {
 
     private int mUid = 0;
 
-    private String mPassport = "";
+    private String mPassport;
 
-    private String mSessionid = "";
+    private String mSessionid;
 
     private final String TOKEN = "token"; // 存放360 token
 
@@ -78,6 +77,10 @@ public class _360 implements IPayManager {
     protected static final String RESPONSE_TYPE_CODE = "code";
 
     private final String PREFS = "prefs";
+
+    private float mMoney ;
+
+    private String mPayway="_360" ;
 
     /**
      * @Title: _360
@@ -147,9 +150,7 @@ public class _360 implements IPayManager {
         } else {
             isLandScape = true;
         }
-
         Bundle bundle = new Bundle();
-
         // 界面相关参数，360SDK界面是否以横屏显示。
         bundle.putBoolean(ProtocolKeys.IS_SCREEN_ORIENTATION_LANDSCAPE, isLandScape);
         // 界面相关参数，360SDK登录界面背景是否透明。
@@ -172,10 +173,8 @@ public class _360 implements IPayManager {
 
         @Override
         public void onFinished(String data) {
-
             Log.d(TAG, "mLoginCallback, data is " + data);
-            String authorizationCode = parseAuthorizationCode(data);
-            _splusLogin(authorizationCode);
+            _splusLogin(data);
 
         }
     };
@@ -189,7 +188,6 @@ public class _360 implements IPayManager {
     private String parseAuthorizationCode(String data) {
         String authorizationCode = null;
         if (!TextUtils.isEmpty(data)) {
-            boolean isCallbackParseOk = false;
             try {
                 JSONObject json = new JSONObject(data);
                 int errCode = json.getInt("errno");
@@ -199,16 +197,11 @@ public class _360 implements IPayManager {
                     if (content != null) {
                         // 360SDK登录返回的Authorization Code（授权码，60秒有效）。
                         authorizationCode = content.getString("code");
-                        isCallbackParseOk = true;
+                        return authorizationCode;
                     }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
-            }
-
-            // 用于测试数据格式是否异常。
-            if (!isCallbackParseOk) {
-                Toast.makeText(mActivity, "严重错误！！接口返回数据格式错误！！", Toast.LENGTH_LONG).show();
             }
         }
         Log.d(TAG, "parseAuthorizationCode=" + authorizationCode);
@@ -216,33 +209,38 @@ public class _360 implements IPayManager {
     }
 
     private void _splusLogin(String data) {
-        if (data == null) {
-            if (mLoginCallBack != null) {
-                mLoginCallBack.loginFaile("Cancel login");
-            }
+        if (TextUtils.isEmpty(data)) {
+            mLoginCallBack.loginFaile("Cancel login");
             return;
         } else {
             String authorizationCode = parseAuthorizationCode(data);
-
-            if (authorizationCode != null && !"".equals(authorizationCode)) {
+            if (!TextUtils.isEmpty(authorizationCode)) {
                 System.out.println("authorizationCode:" + authorizationCode);
-                String gameid = mInitBean.getGameid().toString();
-                String deviceno = mInitBean.getDeviceNo();
-                String referer = mInitBean.getReferer();
-                String partner = mInitBean.getPartner();
-                String time = String.valueOf(System.currentTimeMillis() / 1000);
-                String keyString = gameid + deviceno + referer + partner + time + mInitBean.getAppKey();
-
                 HashMap<String, Object> params = new HashMap<String, Object>();
-                params.put("gameid", gameid);
-                params.put("referer", referer);
-                params.put("partner", partner);
+                Integer gameid = mInitBean.getGameid();
+                String partner = mInitBean.getPartner();
+                String referer = mInitBean.getReferer();
+                long unixTime = DateUtil.getUnixTime();
+                String deviceno=mInitBean.getDeviceNo();
+                String signStr =deviceno+gameid+partner+referer+unixTime+mInitBean.getAppKey();
+                String sign=MD5Util.getMd5toLowerCase(signStr);
+
                 params.put("deviceno", deviceno);
-                params.put("time", time);
-                params.put("version", PayManager.SDK_VERSION);
-                params.put("sign", MD5Util.getMd5toLowerCase(keyString));
-                params.put("code", authorizationCode);
-                NetHttpUtil.getDataFromServerPOST(mActivity, new RequestModel(APIConstants.LOGIN_URL, params, new LoginParser()), mLoginDataCallBack);
+                params.put("gameid", gameid);
+                params.put("partner",partner);
+                params.put("referer", referer);
+                params.put("time", unixTime);
+                params.put("sign", sign);
+                params.put("partner_sessionid", "");
+                params.put("partner_uid", "");
+                params.put("partner_token",authorizationCode);
+                params.put("partner_nickname", "");
+                params.put("partner_username", "");
+                params.put("partner_appid", mAppId);
+                String hashMapTOgetParams = NetHttpUtil.hashMapTOgetParams(params, APIConstants.LOGIN_URL);
+                System.out.println(hashMapTOgetParams);
+                NetHttpUtil.getDataFromServerPOST(mActivity,new RequestModel(APIConstants.LOGIN_URL, params, new LoginParser()),mLoginDataCallBack);
+
             } else {
                 mLoginCallBack.loginFaile("登录失败，请稍后再试");
             }
@@ -311,73 +309,145 @@ public class _360 implements IPayManager {
     public void rechargeByQuota(Activity activity, Integer serverId, String serverName, Integer roleId, String roleName, String outOrderid, String pext, Float money, RechargeCallBack rechargeCallBack) {
         this.mActivity = activity;
         this.mRechargeCallBack = rechargeCallBack;
-        boolean isLandScape = false;
-        if (mInitBean.getOrientation() == Configuration.ORIENTATION_PORTRAIT) {
-            isLandScape = false;
-        } else {
-            isLandScape = true;
-        }
+        this.mMoney=money;
+        HashMap<String, Object> params = new HashMap<String, Object>();
+        Integer gameid = mInitBean.getGameid();
+        String partner = mInitBean.getPartner();
+        String referer = mInitBean.getReferer();
+        long unixTime = DateUtil.getUnixTime();
+        String deviceno=mInitBean.getDeviceNo();
+        String signStr =gameid+serverName+deviceno+referer+partner+mUid+mMoney+mPayway+unixTime+mInitBean.getAppKey();
+        String sign=MD5Util.getMd5toLowerCase(signStr);
 
-        Bundle bundle = new Bundle();
-
-        // 界面相关参数，360SDK界面是否以横屏显示。
-        bundle.putBoolean(ProtocolKeys.IS_SCREEN_ORIENTATION_LANDSCAPE, isLandScape);
-
-        // *** 以下非界面相关参数 ***//
-
-        // 设置PayRechargeBean中的参数。
-
-        PayRechargeBean payRechargeBean = new PayRechargeBean("");
-        // 必需参数，用户access token，要使用注意过期和刷新问题，最大64字符。
-        bundle.putString(ProtocolKeys.ACCESS_TOKEN, payRechargeBean.getAccessToken());
-
-        // 必需参数，360账号id，整数。
-        bundle.putString(ProtocolKeys.QIHOO_USER_ID, payRechargeBean.getQihooUserId());
-
-        // 必需参数，所购买商品金额, 以分为单位。金额大于等于100分，360SDK运行定额支付流程； 金额数为0，360SDK运行不定额支付流程。
-        bundle.putString(ProtocolKeys.AMOUNT, payRechargeBean.getMoneyAmount());
-
-        // 必需参数，人民币与游戏充值币的默认比例，例如2，代表1元人民币可以兑换2个游戏币，整数。
-        bundle.putString(ProtocolKeys.RATE, payRechargeBean.getExchangeRate());
-
-        // 必需参数，所购买商品名称，应用指定，建议中文，最大10个中文字。
-        bundle.putString(ProtocolKeys.PRODUCT_NAME, payRechargeBean.getProductName());
-
-        // 必需参数，购买商品的商品id，应用指定，最大16字符。
-        bundle.putString(ProtocolKeys.PRODUCT_ID, payRechargeBean.getProductId());
-
-        // 必需参数，应用方提供的支付结果通知uri，最大255字符。360服务器将把支付接口回调给该uri，具体协议请查看文档中，支付结果通知接口–应用服务器提供接口。
-        bundle.putString(ProtocolKeys.NOTIFY_URI, payRechargeBean.getNotifyUrl());
-
-        // 必需参数，游戏或应用名称，最大16中文字。
-        bundle.putString(ProtocolKeys.APP_NAME, payRechargeBean.getAppName());
-
-        // 必需参数，应用内的用户名，如游戏角色名。 若应用内绑定360账号和应用账号，则可用360用户名，最大16中文字。（充值不分区服，
-        // 充到统一的用户账户，各区服角色均可使用）。
-        bundle.putString(ProtocolKeys.APP_USER_NAME, payRechargeBean.getAppUserName());
-
-        // 必需参数，应用内的用户id。
-        // 若应用内绑定360账号和应用账号，充值不分区服，充到统一的用户账户，各区服角色均可使用，则可用360用户ID最大32字符。
-        bundle.putString(ProtocolKeys.APP_USER_ID, payRechargeBean.getAppUserId());
-
-        // 可选参数，应用扩展信息1，原样返回，最大255字符。
-        bundle.putString(ProtocolKeys.APP_EXT_1, payRechargeBean.getAppExt1());
-
-        // 可选参数，应用扩展信息2，原样返回，最大255字符。
-        bundle.putString(ProtocolKeys.APP_EXT_2, payRechargeBean.getAppExt2());
-
-        // 可选参数，应用订单号，应用内必须唯一，最大32字符。
-        bundle.putString(ProtocolKeys.APP_ORDER_ID, payRechargeBean.getAppOrderId());
-
-        Intent intent = new Intent(activity, ContainerActivity.class);
-
-        // 必需参数，使用360SDK的支付模块。
-        intent.putExtra(ProtocolKeys.FUNCTION_CODE, ProtocolConfigs.FUNC_CODE_PAY);
-        // 界面相关参数，360SDK登录界面背景是否透明。
-        intent.putExtra(ProtocolKeys.IS_LOGIN_BG_TRANSPARENT, true);
-        intent.putExtras(bundle);
+        params.put("deviceno", deviceno);
+        params.put("gameid", gameid);
+        params.put("partner",partner);
+        params.put("referer", referer);
+        params.put("time", unixTime);
+        params.put("sign", sign);
+        params.put("uid",mUid);
+        params.put("passport",mPassport);
+        params.put("serverId",serverId);
+        params.put("serverName",serverName);
+        params.put("roleId",roleId);
+        params.put("roleName",roleName);
+        params.put("money",mMoney);
+        params.put("pext",pext);
+        params.put("money",mMoney);
+        params.put("payway",mPayway);
+        params.put("outOrderid",outOrderid);
+        String hashMapTOgetParams = NetHttpUtil.hashMapTOgetParams(params, APIConstants.PAY_URL);
+        System.out.println(hashMapTOgetParams);
+        NetHttpUtil.getDataFromServerPOST(mActivity, new RequestModel(APIConstants.PAY_URL, params,new LoginParser()),mRechargeDataCallBack);
 
     }
+
+
+    private DataCallback<JSONObject> mRechargeDataCallBack = new DataCallback<JSONObject>() {
+
+        @Override
+        public void callbackSuccess(JSONObject paramObject) {
+            Log.d(TAG, "mRechargeDataCallBack---------"+paramObject.toString());
+            try {
+                if (paramObject != null && (paramObject.optInt("code") == 1||paramObject.optInt("code") == 24)) {
+                    JSONObject data = paramObject.optJSONObject("data");
+                    String orderid=data.optString("orderid");
+
+                    boolean isLandScape = false;
+                    if (mInitBean.getOrientation() == Configuration.ORIENTATION_PORTRAIT) {
+                        isLandScape = false;
+                    } else {
+                        isLandScape = true;
+                    }
+                    Bundle bundle = new Bundle();
+                    // 界面相关参数，360SDK界面是否以横屏显示。
+                    bundle.putBoolean(ProtocolKeys.IS_SCREEN_ORIENTATION_LANDSCAPE, isLandScape);
+                    // *** 以下非界面相关参数 ***//
+
+                    // 设置PayRechargeBean中的参数。
+
+                    PayRechargeBean payRechargeBean = new PayRechargeBean("");
+                    // 必需参数，用户access token，要使用注意过期和刷新问题，最大64字符。
+                    bundle.putString(ProtocolKeys.ACCESS_TOKEN, getToken(mActivity));
+
+                    // 必需参数，360账号id，整数。
+                    bundle.putString(ProtocolKeys.QIHOO_USER_ID, payRechargeBean.getQihooUserId());
+
+                    // 必需参数，所购买商品金额, 以分为单位。金额大于等于100分，360SDK运行定额支付流程； 金额数为0，360SDK运行不定额支付流程。
+                    bundle.putString(ProtocolKeys.AMOUNT, payRechargeBean.getMoneyAmount());
+
+                    // 必需参数，人民币与游戏充值币的默认比例，例如2，代表1元人民币可以兑换2个游戏币，整数。
+                    bundle.putString(ProtocolKeys.RATE, payRechargeBean.getExchangeRate());
+
+                    // 必需参数，所购买商品名称，应用指定，建议中文，最大10个中文字。
+                    bundle.putString(ProtocolKeys.PRODUCT_NAME, payRechargeBean.getProductName());
+
+                    // 必需参数，购买商品的商品id，应用指定，最大16字符。
+                    bundle.putString(ProtocolKeys.PRODUCT_ID, payRechargeBean.getProductId());
+
+                    // 必需参数，应用方提供的支付结果通知uri，最大255字符。360服务器将把支付接口回调给该uri，具体协议请查看文档中，支付结果通知接口–应用服务器提供接口。
+                    bundle.putString(ProtocolKeys.NOTIFY_URI, payRechargeBean.getNotifyUrl());
+
+                    // 必需参数，游戏或应用名称，最大16中文字。
+                    bundle.putString(ProtocolKeys.APP_NAME, payRechargeBean.getAppName());
+
+                    // 必需参数，应用内的用户名，如游戏角色名。 若应用内绑定360账号和应用账号，则可用360用户名，最大16中文字。（充值不分区服，
+                    // 充到统一的用户账户，各区服角色均可使用）。
+                    bundle.putString(ProtocolKeys.APP_USER_NAME, payRechargeBean.getAppUserName());
+
+                    // 必需参数，应用内的用户id。
+                    // 若应用内绑定360账号和应用账号，充值不分区服，充到统一的用户账户，各区服角色均可使用，则可用360用户ID最大32字符。
+                    bundle.putString(ProtocolKeys.APP_USER_ID, payRechargeBean.getAppUserId());
+
+                    // 可选参数，应用扩展信息1，原样返回，最大255字符。
+                    bundle.putString(ProtocolKeys.APP_EXT_1, payRechargeBean.getAppExt1());
+
+                    // 可选参数，应用扩展信息2，原样返回，最大255字符。
+                    bundle.putString(ProtocolKeys.APP_EXT_2, payRechargeBean.getAppExt2());
+
+                    // 可选参数，应用订单号，应用内必须唯一，最大32字符。
+                    bundle.putString(ProtocolKeys.APP_ORDER_ID, payRechargeBean.getAppOrderId());
+
+                    Intent intent = new Intent(mActivity, ContainerActivity.class);
+
+                    // 必需参数，使用360SDK的支付模块。
+                    intent.putExtra(ProtocolKeys.FUNCTION_CODE, ProtocolConfigs.FUNC_CODE_PAY);
+                    // 界面相关参数，360SDK登录界面背景是否透明。
+                    intent.putExtra(ProtocolKeys.IS_LOGIN_BG_TRANSPARENT, true);
+                    intent.putExtras(bundle);
+
+
+
+
+
+                } else {
+                    Log.d(TAG, paramObject.optString("msg"));
+                    mRechargeCallBack.rechargeFaile(paramObject.optString("msg"));
+                }
+
+            } catch (Exception e) {
+                Log.d(TAG, e.getLocalizedMessage());
+                mRechargeCallBack.rechargeFaile(e.getLocalizedMessage());
+            }
+        }
+
+        @Override
+        public void callbackError(String error) {
+            Log.d(TAG, error);
+            mRechargeCallBack.rechargeFaile(error);
+
+        }
+
+    };
+
+
+
+
+
+
+
+
+
 
     @Override
     public void exitSDK() {
@@ -486,6 +556,13 @@ public class _360 implements IPayManager {
     public void onStop(Activity activity) {
     }
 
+
+    @Override
+    public void onDestroy(Activity activity) {
+
+        Matrix.destroy(activity);
+    }
+
     private void setToken(Context context, String token) {
         SharedPreferences uiState = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         Editor editor = uiState.edit();
@@ -497,12 +574,5 @@ public class _360 implements IPayManager {
         SharedPreferences uiState = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         return uiState.getString(TOKEN, "");
     }
-
-    @Override
-    public void onDestroy(Activity activity) {
-
-        Matrix.destroy(activity);
-    }
-
 
 }
