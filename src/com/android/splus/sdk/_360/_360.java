@@ -122,7 +122,7 @@ public class _360 implements IPayManager {
         mInitBean.initSplus(activity, initCallBack,new InitBeanSuccess() {
             @Override
             public void initBeaned(boolean initBeanSuccess) {
-                Matrix.init(mActivity, false, mIinitCallback);
+                Matrix.init(mActivity, false, mIinitIDispatcherCallback);
             }
         });
 
@@ -130,7 +130,7 @@ public class _360 implements IPayManager {
 
     }
 
-    IDispatcherCallback mIinitCallback = new IDispatcherCallback() {
+    IDispatcherCallback mIinitIDispatcherCallback = new IDispatcherCallback() {
 
         @Override
         public void onFinished(String data) {
