@@ -82,6 +82,8 @@ public class _360 implements IPayManager {
 
     private String mPayway="_360" ;
 
+    private  String  mPext;
+
     /**
      * @Title: _360
      * @Description:( 将构造函数私有化)
@@ -310,6 +312,7 @@ public class _360 implements IPayManager {
         this.mActivity = activity;
         this.mRechargeCallBack = rechargeCallBack;
         this.mMoney=money;
+        this.mPext=pext;
         HashMap<String, Object> params = new HashMap<String, Object>();
         Integer gameid = mInitBean.getGameid();
         String partner = mInitBean.getPartner();
@@ -333,7 +336,6 @@ public class _360 implements IPayManager {
         params.put("roleName",roleName);
         params.put("money",mMoney);
         params.put("pext",pext);
-        params.put("money",mMoney);
         params.put("payway",mPayway);
         params.put("outOrderid",outOrderid);
         String hashMapTOgetParams = NetHttpUtil.hashMapTOgetParams(params, APIConstants.PAY_URL);
@@ -366,47 +368,46 @@ public class _360 implements IPayManager {
 
                     // 设置PayRechargeBean中的参数。
 
-                    PayRechargeBean payRechargeBean = new PayRechargeBean("");
                     // 必需参数，用户access token，要使用注意过期和刷新问题，最大64字符。
                     bundle.putString(ProtocolKeys.ACCESS_TOKEN, getToken(mActivity));
 
                     // 必需参数，360账号id，整数。
-                    bundle.putString(ProtocolKeys.QIHOO_USER_ID, payRechargeBean.getQihooUserId());
+                    bundle.putString(ProtocolKeys.QIHOO_USER_ID, "");
 
                     // 必需参数，所购买商品金额, 以分为单位。金额大于等于100分，360SDK运行定额支付流程； 金额数为0，360SDK运行不定额支付流程。
-                    bundle.putString(ProtocolKeys.AMOUNT, payRechargeBean.getMoneyAmount());
+                    bundle.putString(ProtocolKeys.AMOUNT, String.valueOf(mMoney));
 
                     // 必需参数，人民币与游戏充值币的默认比例，例如2，代表1元人民币可以兑换2个游戏币，整数。
-                    bundle.putString(ProtocolKeys.RATE, payRechargeBean.getExchangeRate());
+                    bundle.putString(ProtocolKeys.RATE, "1");
 
                     // 必需参数，所购买商品名称，应用指定，建议中文，最大10个中文字。
-                    bundle.putString(ProtocolKeys.PRODUCT_NAME, payRechargeBean.getProductName());
+                    bundle.putString(ProtocolKeys.PRODUCT_NAME, "游戏道具");
 
                     // 必需参数，购买商品的商品id，应用指定，最大16字符。
-                    bundle.putString(ProtocolKeys.PRODUCT_ID, payRechargeBean.getProductId());
+                    bundle.putString(ProtocolKeys.PRODUCT_ID, "1888");
 
                     // 必需参数，应用方提供的支付结果通知uri，最大255字符。360服务器将把支付接口回调给该uri，具体协议请查看文档中，支付结果通知接口–应用服务器提供接口。
-                    bundle.putString(ProtocolKeys.NOTIFY_URI, payRechargeBean.getNotifyUrl());
+                    bundle.putString(ProtocolKeys.NOTIFY_URI, "http://sdbxapp.msdk.mobilem.360.cn/pay_callback.php");
 
                     // 必需参数，游戏或应用名称，最大16中文字。
-                    bundle.putString(ProtocolKeys.APP_NAME, payRechargeBean.getAppName());
+                    bundle.putString(ProtocolKeys.APP_NAME, "天天爱西柚");
 
                     // 必需参数，应用内的用户名，如游戏角色名。 若应用内绑定360账号和应用账号，则可用360用户名，最大16中文字。（充值不分区服，
                     // 充到统一的用户账户，各区服角色均可使用）。
-                    bundle.putString(ProtocolKeys.APP_USER_NAME, payRechargeBean.getAppUserName());
+                    bundle.putString(ProtocolKeys.APP_USER_NAME, "");
 
                     // 必需参数，应用内的用户id。
                     // 若应用内绑定360账号和应用账号，充值不分区服，充到统一的用户账户，各区服角色均可使用，则可用360用户ID最大32字符。
-                    bundle.putString(ProtocolKeys.APP_USER_ID, payRechargeBean.getAppUserId());
+                    bundle.putString(ProtocolKeys.APP_USER_ID, "");
 
                     // 可选参数，应用扩展信息1，原样返回，最大255字符。
-                    bundle.putString(ProtocolKeys.APP_EXT_1, payRechargeBean.getAppExt1());
+                    bundle.putString(ProtocolKeys.APP_EXT_1, mPext);
 
                     // 可选参数，应用扩展信息2，原样返回，最大255字符。
-                    bundle.putString(ProtocolKeys.APP_EXT_2, payRechargeBean.getAppExt2());
+                    bundle.putString(ProtocolKeys.APP_EXT_2, mPext);
 
                     // 可选参数，应用订单号，应用内必须唯一，最大32字符。
-                    bundle.putString(ProtocolKeys.APP_ORDER_ID, payRechargeBean.getAppOrderId());
+                    bundle.putString(ProtocolKeys.APP_ORDER_ID, orderid);
 
                     Intent intent = new Intent(mActivity, ContainerActivity.class);
 
